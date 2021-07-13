@@ -46,7 +46,7 @@ class DHT_Unified {
 public:
   DHT_Unified(uint8_t pin, uint8_t type, uint8_t count = 6,
               int32_t tempSensorId = -1, int32_t humiditySensorId = -1);
-  void begin();
+  bool begin();
 
   /*!
    *  @brief  Class that stores state and functions about Temperature

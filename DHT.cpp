@@ -25,7 +25,11 @@
 
 #include "DHT.h"
 
-#define MIN_INTERVAL 2000 /**< min interval value */
+#include <chrono>
+
+using namespace std::chrono_literals;
+
+constexpr const auto MIN_INTERVAL = 2s; /**< min interval value */
 #define TIMEOUT                                                                \
   UINT32_MAX /**< Used programmatically for timeout.                           \
                    Not a timeout duration. Type: uint32_t. */
@@ -39,17 +43,18 @@
  *  @param  count
  *          number of sensors
  */
-DHT::DHT(uint8_t pin, uint8_t type, uint8_t count) {
-  (void)count; // Workaround to avoid compiler warning.
-  _pin = pin;
-  _type = type;
+DHT::DHT(uint8_t pin, uint8_t type, uint8_t count) :
+  _pin{pin},
+  _type{type},
 #ifdef __AVR
-  _bit = digitalPinToBitMask(pin);
-  _port = digitalPinToPort(pin);
+  _bit{digitalPinToBitMask(pin)},
+  _port{digitalPinToPort(pin)},
 #endif
-  _maxcycles =
-      microsecondsToClockCycles(1000); // 1 millisecond timeout for
-                                       // reading pulses from DHT sensor.
+  // 1 millisecond timeout for
+  // reading pulses from DHT sensor.
+  _maxcycles(microsecondsToClockCycles(1000))
+{
+  (void)count; // Workaround to avoid compiler warning.
   // Note that count is now ignored as the DHT reading algorithm adjusts itself
   // based on the speed of the processor.
 }
@@ -60,16 +65,15 @@ DHT::DHT(uint8_t pin, uint8_t type, uint8_t count) {
  *          Optionally pass pull-up time (in microseconds) before DHT reading
  *starts. Default is 55 (see function declaration in DHT.h).
  */
-void DHT::begin(uint8_t usec) {
+bool DHT::begin(uint8_t usec) {
   // set up the pins!
   pinMode(_pin, INPUT_PULLUP);
-  // Using this value makes sure that millis() - lastreadtime will be
-  // >= MIN_INTERVAL right away. Note that this assignment wraps around,
-  // but so will the subtraction.
-  _lastreadtime = espchrono::millis_clock::now() - std::chrono::milliseconds{MIN_INTERVAL};
+
   DEBUG_PRINT("DHT max clock cycles: ");
   DEBUG_PRINTLN(_maxcycles, DEC);
   pullTime = usec;
+
+  return true;
 }
 
 /*!
@@ -83,14 +87,17 @@ void DHT::begin(uint8_t usec) {
  *	@return Temperature value in selected scale
  */
 std::optional<float> DHT::readTemperature(bool S, bool force) {
-  if (!read(force))
+  const auto data = read(force);
+  if (!data)
     return std::nullopt;
 
-  float f = NAN;
+  return readTemperature(*data, S);
+}
 
+float DHT::readTemperature(const std::array<uint8_t, 5> &data, bool S) const {
   switch (_type) {
-  case DHT11:
-    f = data[2];
+  case DHT11: {
+    float f = data[2];
     if (data[3] & 0x80) {
       f = -1 - f;
     }
@@ -98,9 +105,10 @@ std::optional<float> DHT::readTemperature(bool S, bool force) {
     if (S) {
       f = convertCtoF(f);
     }
-    break;
-  case DHT12:
-    f = data[2];
+    return f;
+  }
+  case DHT12: {
+    float f = data[2];
     f += (data[3] & 0x0f) * 0.1;
     if (data[2] & 0x80) {
       f *= -1;
@@ -108,10 +116,11 @@ std::optional<float> DHT::readTemperature(bool S, bool force) {
     if (S) {
       f = convertCtoF(f);
     }
-    break;
+    return f;
+  }
   case DHT22:
-  case DHT21:
-    f = ((word)(data[2] & 0x7F)) << 8 | data[3];
+  case DHT21: {
+    float f = ((word)(data[2] & 0x7F)) << 8 | data[3];
     f *= 0.1;
     if (data[2] & 0x80) {
       f *= -1;
@@ -119,29 +128,12 @@ std::optional<float> DHT::readTemperature(bool S, bool force) {
     if (S) {
       f = convertCtoF(f);
     }
-    break;
-  default:
-    return std::nullopt;
+    return f;
+  }
   }
 
-  return f;
+  __builtin_unreachable();
 }
-
-/*!
- *  @brief  Converts Celcius to Fahrenheit
- *  @param  c
- *					value in Celcius
- *	@return float value in Fahrenheit
- */
-float DHT::convertCtoF(float c) { return c * 1.8 + 32; }
-
-/*!
- *  @brief  Converts Fahrenheit to Celcius
- *  @param  f
- *					value in Fahrenheit
- *	@return float value in Celcius
- */
-float DHT::convertFtoC(float f) { return (f - 32) * 0.55555; }
 
 /*!
  *  @brief  Read Humidity
@@ -150,24 +142,29 @@ float DHT::convertFtoC(float f) { return (f - 32) * 0.55555; }
  *	@return float value - humidity in percent
  */
 std::optional<float> DHT::readHumidity(bool force) {
-  if (!read(force))
+  const auto data = read(force);
+  if (!data)
     return std::nullopt;
 
-  float f = NAN;
+  return readHumidity(*data);
+}
+
+float DHT::readHumidity(const std::array<uint8_t, 5> &data) const {
   switch (_type) {
   case DHT11:
-  case DHT12:
-    f = data[0] + data[1] * 0.1;
-    break;
-  case DHT22:
-  case DHT21:
-    f = ((word)data[0]) << 8 | data[1];
-    f *= 0.1;
-    break;
-  default:
-    return std::nullopt;
+  case DHT12: {
+    float f = data[0] + data[1] * 0.1;
+    return f;
   }
-  return f;
+  case DHT22:
+  case DHT21: {
+    float f = ((word)data[0]) << 8 | data[1];
+    f *= 0.1;
+    return f;
+  }
+  }
+
+  __builtin_unreachable();
 }
 
 /*!
@@ -203,8 +200,8 @@ std::optional<float> DHT::computeHeatIndex(bool isFahrenheit) {
  * 					true if fahrenheit, false if celcius
  *	@return float heat index
  */
-float DHT::computeHeatIndex(float temperature, float percentHumidity,
-                            bool isFahrenheit) {
+/*static*/ float DHT::computeHeatIndex(float temperature, float percentHumidity,
+                                       bool isFahrenheit) {
   float hi;
 
   if (!isFahrenheit)
@@ -242,17 +239,17 @@ float DHT::computeHeatIndex(float temperature, float percentHumidity,
  *          true if using force mode
  *	@return float value
  */
-bool DHT::read(bool force) {
+const std::optional<std::array<uint8_t, 5>> &DHT::read(bool force) {
   // Check if sensor was read less than two seconds ago and return early
   // to use last reading.
   espchrono::millis_clock::time_point currenttime = espchrono::millis_clock::now();
-  if (!force && ((currenttime - _lastreadtime) < std::chrono::milliseconds{MIN_INTERVAL})) {
+  if (!force && _lastreadtime && ((currenttime - *_lastreadtime) < MIN_INTERVAL)) {
     return _lastresult; // return last correct measurement
   }
   _lastreadtime = currenttime;
 
   // Reset 40 bits of received data to zero.
-  data[0] = data[1] = data[2] = data[3] = data[4] = 0;
+  _lastresult = std::array<uint8_t, 5>{0, 0, 0, 0, 0};
 
 #if defined(ESP8266)
   yield(); // Handle WiFi / reset software watchdog
@@ -298,12 +295,12 @@ bool DHT::read(bool force) {
     // for ~80 microseconds again.
     if (expectPulse(LOW) == TIMEOUT) {
       DEBUG_PRINTLN(F("DHT timeout waiting for start signal low pulse."));
-      _lastresult = false;
+      _lastresult = std::nullopt;
       return _lastresult;
     }
     if (expectPulse(HIGH) == TIMEOUT) {
       DEBUG_PRINTLN(F("DHT timeout waiting for start signal high pulse."));
-      _lastresult = false;
+      _lastresult = std::nullopt;
       return _lastresult;
     }
 
@@ -328,14 +325,14 @@ bool DHT::read(bool force) {
     uint32_t highCycles = cycles[2 * i + 1];
     if ((lowCycles == TIMEOUT) || (highCycles == TIMEOUT)) {
       DEBUG_PRINTLN(F("DHT timeout waiting for pulse."));
-      _lastresult = false;
+      _lastresult = std::nullopt;
       return _lastresult;
     }
-    data[i / 8] <<= 1;
+    (*_lastresult)[i / 8] <<= 1;
     // Now compare the low and high cycle times to see if the bit is a 0 or 1.
     if (highCycles > lowCycles) {
       // High cycles are greater than 50us low cycle count, must be a 1.
-      data[i / 8] |= 1;
+      (*_lastresult)[i / 8] |= 1;
     }
     // Else high cycles are less than (or equal to, a weird case) the 50us low
     // cycle count so this must be a zero.  Nothing needs to be changed in the
@@ -343,27 +340,26 @@ bool DHT::read(bool force) {
   }
 
   DEBUG_PRINTLN(F("Received from DHT:"));
-  DEBUG_PRINT(data[0], HEX);
+  DEBUG_PRINT((*_lastresult)[0], HEX);
   DEBUG_PRINT(F(", "));
-  DEBUG_PRINT(data[1], HEX);
+  DEBUG_PRINT((*_lastresult)[1], HEX);
   DEBUG_PRINT(F(", "));
-  DEBUG_PRINT(data[2], HEX);
+  DEBUG_PRINT((*_lastresult)[2], HEX);
   DEBUG_PRINT(F(", "));
-  DEBUG_PRINT(data[3], HEX);
+  DEBUG_PRINT((*_lastresult)[3], HEX);
   DEBUG_PRINT(F(", "));
-  DEBUG_PRINT(data[4], HEX);
+  DEBUG_PRINT((*_lastresult)[4], HEX);
   DEBUG_PRINT(F(" =? "));
-  DEBUG_PRINTLN((data[0] + data[1] + data[2] + data[3]) & 0xFF, HEX);
+  DEBUG_PRINTLN(((*_lastresult)[0] + (*_lastresult)[1] + (*_lastresult)[2] + (*_lastresult)[3]) & 0xFF, HEX);
 
   // Check we read 40 bits and that the checksum matches.
-  if (data[4] == ((data[0] + data[1] + data[2] + data[3]) & 0xFF)) {
-    _lastresult = true;
-    return _lastresult;
-  } else {
+  if ((*_lastresult)[4] != (((*_lastresult)[0] + (*_lastresult)[1] + (*_lastresult)[2] + (*_lastresult)[3]) & 0xFF)) {
     DEBUG_PRINTLN(F("DHT checksum failure!"));
-    _lastresult = false;
+    _lastresult = std::nullopt;
     return _lastresult;
   }
+
+  return _lastresult;
 }
 
 // Expect the signal line to be at the specified level for a period of time and

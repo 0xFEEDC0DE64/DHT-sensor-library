@@ -21,6 +21,7 @@
 #include "Arduino.h"
 
 #include <optional>
+#include <array>
 
 #include <espchrono.h>
 
@@ -67,28 +68,39 @@
 class DHT {
 public:
   DHT(uint8_t pin, uint8_t type, uint8_t count = 6);
-  void begin(uint8_t usec = 55);
+
+  bool begin(uint8_t usec = 55);
+
   std::optional<float> readTemperature(bool S = false, bool force = false);
-  float convertCtoF(float);
-  float convertFtoC(float);
+  float readTemperature(const std::array<uint8_t, 5> &data, bool S = false) const;
+
+  static inline float convertCtoF(float c) { return c * 1.8 + 32; }
+  static inline float convertFtoC(float f) { return (f - 32) * 0.55555; }
+
   std::optional<float> computeHeatIndex(bool isFahrenheit = true);
-  float computeHeatIndex(float temperature, float percentHumidity,
-                         bool isFahrenheit = true);
+  static float computeHeatIndex(float temperature, float percentHumidity,
+                                bool isFahrenheit = true);
+
   std::optional<float> readHumidity(bool force = false);
-  bool read(bool force = false);
+  float readHumidity(const std::array<uint8_t, 5> &data) const;
+
+  const std::optional<std::array<uint8_t, 5>> &read(bool force = false);
 
 private:
-  uint8_t data[5];
-  uint8_t _pin, _type;
+  const uint8_t _pin;
+  const uint8_t _type;
 #ifdef __AVR
   // Use direct GPIO access on an 8-bit AVR so keep track of the port and
   // bitmask for the digital pin connected to the DHT.  Other platforms will use
   // digitalRead.
-  uint8_t _bit, _port;
+  const uint8_t _bit;
+  const uint8_t _port;
 #endif
-  espchrono::millis_clock::time_point _lastreadtime;
-  uint32_t _maxcycles;
-  bool _lastresult;
+  const uint32_t _maxcycles;
+
+  std::optional<espchrono::millis_clock::time_point> _lastreadtime;
+  std::optional<std::array<uint8_t, 5>> _lastresult;
+
   uint8_t pullTime; // Time (in usec) to pull up data line before reading
 
   uint32_t expectPulse(bool level);

@@ -37,7 +37,7 @@ DHT_Unified::DHT_Unified(uint8_t pin, uint8_t type, uint8_t count,
 /*!
  *  @brief  Setup sensor (calls begin on It)
  */
-void DHT_Unified::begin() { _dht.begin(); }
+bool DHT_Unified::begin() { return _dht.begin(); }
 
 /*!
  *  @brief  Sets sensor name
