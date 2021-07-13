@@ -20,6 +20,10 @@
 
 #include "Arduino.h"
 
+#include <optional>
+
+#include <espchrono.h>
+
 /* Uncomment to enable printing out nice debug messages. */
 //#define DHT_DEBUG
 
@@ -64,13 +68,13 @@ class DHT {
 public:
   DHT(uint8_t pin, uint8_t type, uint8_t count = 6);
   void begin(uint8_t usec = 55);
-  float readTemperature(bool S = false, bool force = false);
+  std::optional<float> readTemperature(bool S = false, bool force = false);
   float convertCtoF(float);
   float convertFtoC(float);
-  float computeHeatIndex(bool isFahrenheit = true);
+  std::optional<float> computeHeatIndex(bool isFahrenheit = true);
   float computeHeatIndex(float temperature, float percentHumidity,
                          bool isFahrenheit = true);
-  float readHumidity(bool force = false);
+  std::optional<float> readHumidity(bool force = false);
   bool read(bool force = false);
 
 private:
@@ -82,7 +86,8 @@ private:
   // digitalRead.
   uint8_t _bit, _port;
 #endif
-  uint32_t _lastreadtime, _maxcycles;
+  espchrono::millis_clock::time_point _lastreadtime;
+  uint32_t _maxcycles;
   bool _lastresult;
   uint8_t pullTime; // Time (in usec) to pull up data line before reading
 

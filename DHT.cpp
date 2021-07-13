@@ -66,7 +66,7 @@ void DHT::begin(uint8_t usec) {
   // Using this value makes sure that millis() - lastreadtime will be
   // >= MIN_INTERVAL right away. Note that this assignment wraps around,
   // but so will the subtraction.
-  _lastreadtime = millis() - MIN_INTERVAL;
+  _lastreadtime = espchrono::millis_clock::now() - std::chrono::milliseconds{MIN_INTERVAL};
   DEBUG_PRINT("DHT max clock cycles: ");
   DEBUG_PRINTLN(_maxcycles, DEC);
   pullTime = usec;
@@ -82,44 +82,48 @@ void DHT::begin(uint8_t usec) {
  *          true if in force mode
  *	@return Temperature value in selected scale
  */
-float DHT::readTemperature(bool S, bool force) {
+std::optional<float> DHT::readTemperature(bool S, bool force) {
+  if (!read(force))
+    return std::nullopt;
+
   float f = NAN;
 
-  if (read(force)) {
-    switch (_type) {
-    case DHT11:
-      f = data[2];
-      if (data[3] & 0x80) {
-        f = -1 - f;
-      }
-      f += (data[3] & 0x0f) * 0.1;
-      if (S) {
-        f = convertCtoF(f);
-      }
-      break;
-    case DHT12:
-      f = data[2];
-      f += (data[3] & 0x0f) * 0.1;
-      if (data[2] & 0x80) {
-        f *= -1;
-      }
-      if (S) {
-        f = convertCtoF(f);
-      }
-      break;
-    case DHT22:
-    case DHT21:
-      f = ((word)(data[2] & 0x7F)) << 8 | data[3];
-      f *= 0.1;
-      if (data[2] & 0x80) {
-        f *= -1;
-      }
-      if (S) {
-        f = convertCtoF(f);
-      }
-      break;
+  switch (_type) {
+  case DHT11:
+    f = data[2];
+    if (data[3] & 0x80) {
+      f = -1 - f;
     }
+    f += (data[3] & 0x0f) * 0.1;
+    if (S) {
+      f = convertCtoF(f);
+    }
+    break;
+  case DHT12:
+    f = data[2];
+    f += (data[3] & 0x0f) * 0.1;
+    if (data[2] & 0x80) {
+      f *= -1;
+    }
+    if (S) {
+      f = convertCtoF(f);
+    }
+    break;
+  case DHT22:
+  case DHT21:
+    f = ((word)(data[2] & 0x7F)) << 8 | data[3];
+    f *= 0.1;
+    if (data[2] & 0x80) {
+      f *= -1;
+    }
+    if (S) {
+      f = convertCtoF(f);
+    }
+    break;
+  default:
+    return std::nullopt;
   }
+
   return f;
 }
 
@@ -145,20 +149,23 @@ float DHT::convertFtoC(float f) { return (f - 32) * 0.55555; }
  *					force read mode
  *	@return float value - humidity in percent
  */
-float DHT::readHumidity(bool force) {
+std::optional<float> DHT::readHumidity(bool force) {
+  if (!read(force))
+    return std::nullopt;
+
   float f = NAN;
-  if (read(force)) {
-    switch (_type) {
-    case DHT11:
-    case DHT12:
-      f = data[0] + data[1] * 0.1;
-      break;
-    case DHT22:
-    case DHT21:
-      f = ((word)data[0]) << 8 | data[1];
-      f *= 0.1;
-      break;
-    }
+  switch (_type) {
+  case DHT11:
+  case DHT12:
+    f = data[0] + data[1] * 0.1;
+    break;
+  case DHT22:
+  case DHT21:
+    f = ((word)data[0]) << 8 | data[1];
+    f *= 0.1;
+    break;
+  default:
+    return std::nullopt;
   }
   return f;
 }
@@ -171,9 +178,16 @@ float DHT::readHumidity(bool force) {
  *(default true)
  *	@return float heat index
  */
-float DHT::computeHeatIndex(bool isFahrenheit) {
-  float hi = computeHeatIndex(readTemperature(isFahrenheit), readHumidity(),
-                              isFahrenheit);
+std::optional<float> DHT::computeHeatIndex(bool isFahrenheit) {
+  const auto temperature = readTemperature(isFahrenheit);
+  if (!temperature)
+    return std::nullopt;
+
+  const auto humidity = readHumidity();
+  if (!humidity)
+    return std::nullopt;
+
+  float hi = computeHeatIndex(*temperature, *humidity, isFahrenheit);
   return hi;
 }
 
@@ -231,8 +245,8 @@ float DHT::computeHeatIndex(float temperature, float percentHumidity,
 bool DHT::read(bool force) {
   // Check if sensor was read less than two seconds ago and return early
   // to use last reading.
-  uint32_t currenttime = millis();
-  if (!force && ((currenttime - _lastreadtime) < MIN_INTERVAL)) {
+  espchrono::millis_clock::time_point currenttime = espchrono::millis_clock::now();
+  if (!force && ((currenttime - _lastreadtime) < std::chrono::milliseconds{MIN_INTERVAL})) {
     return _lastresult; // return last correct measurement
   }
   _lastreadtime = currenttime;

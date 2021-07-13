@@ -14,6 +14,8 @@
  */
 #include "DHT_U.h"
 
+#include <espchrono.h>
+
 /*!
  *  @brief  Instantiates a new DHT_Unified class
  *  @param  pin
@@ -107,62 +109,65 @@ DHT_Unified::Temperature::Temperature(DHT_Unified *parent, int32_t id)
  *  @param  event
  *  @return always returns true
  */
-bool DHT_Unified::Temperature::getEvent(sensors_event_t *event) {
-  // Clear event definition.
-  memset(event, 0, sizeof(sensors_event_t));
-  // Populate sensor reading values.
-  event->version = sizeof(sensors_event_t);
-  event->sensor_id = _id;
-  event->type = SENSOR_TYPE_AMBIENT_TEMPERATURE;
-  event->timestamp = millis();
-  event->temperature = _parent->_dht.readTemperature();
+std::optional<sensors_event_t> DHT_Unified::Temperature::getEvent() {
+  const auto temperature = _parent->_dht.readTemperature();
+  if (!temperature)
+    return std::nullopt;
 
-  return true;
+  sensors_event_t event;
+  // Populate sensor reading values.
+  event.version = sizeof(sensors_event_t);
+  event.sensor_id = _id;
+  event.type = SENSOR_TYPE_AMBIENT_TEMPERATURE;
+  event.timestamp = espchrono::millis_clock::now();
+  event.temperature = *temperature;
+
+  return event;
 }
 
 /*!
  *  @brief  Provides the sensor_t data for this sensor
  *  @param  sensor
  */
-void DHT_Unified::Temperature::getSensor(sensor_t *sensor) {
-  // Clear sensor definition.
-  memset(sensor, 0, sizeof(sensor_t));
+sensor_t DHT_Unified::Temperature::getSensor() {
+  sensor_t sensor;
   // Set sensor name.
-  _parent->setName(sensor);
+  _parent->setName(&sensor);
   // Set version and ID
-  sensor->version = DHT_SENSOR_VERSION;
-  sensor->sensor_id = _id;
+  sensor.version = DHT_SENSOR_VERSION;
+  sensor.sensor_id = _id;
   // Set type and characteristics.
-  sensor->type = SENSOR_TYPE_AMBIENT_TEMPERATURE;
-  _parent->setMinDelay(sensor);
+  sensor.type = SENSOR_TYPE_AMBIENT_TEMPERATURE;
+  _parent->setMinDelay(&sensor);
   switch (_parent->_type) {
   case DHT11:
-    sensor->max_value = 50.0F;
-    sensor->min_value = 0.0F;
-    sensor->resolution = 2.0F;
+    sensor.max_value = 50.0F;
+    sensor.min_value = 0.0F;
+    sensor.resolution = 2.0F;
     break;
   case DHT12:
-    sensor->max_value = 60.0F;
-    sensor->min_value = -20.0F;
-    sensor->resolution = 0.5F;
+    sensor.max_value = 60.0F;
+    sensor.min_value = -20.0F;
+    sensor.resolution = 0.5F;
     break;
   case DHT21:
-    sensor->max_value = 80.0F;
-    sensor->min_value = -40.0F;
-    sensor->resolution = 0.1F;
+    sensor.max_value = 80.0F;
+    sensor.min_value = -40.0F;
+    sensor.resolution = 0.1F;
     break;
   case DHT22:
-    sensor->max_value = 125.0F;
-    sensor->min_value = -40.0F;
-    sensor->resolution = 0.1F;
+    sensor.max_value = 125.0F;
+    sensor.min_value = -40.0F;
+    sensor.resolution = 0.1F;
     break;
   default:
     // Unknown type, default to 0.
-    sensor->max_value = 0.0F;
-    sensor->min_value = 0.0F;
-    sensor->resolution = 0.0F;
+    sensor.max_value = 0.0F;
+    sensor.min_value = 0.0F;
+    sensor.resolution = 0.0F;
     break;
   }
+  return sensor;
 }
 
 /*!
@@ -180,60 +185,63 @@ DHT_Unified::Humidity::Humidity(DHT_Unified *parent, int32_t id)
  *  @param  event
  *  @return always returns true
  */
-bool DHT_Unified::Humidity::getEvent(sensors_event_t *event) {
-  // Clear event definition.
-  memset(event, 0, sizeof(sensors_event_t));
-  // Populate sensor reading values.
-  event->version = sizeof(sensors_event_t);
-  event->sensor_id = _id;
-  event->type = SENSOR_TYPE_RELATIVE_HUMIDITY;
-  event->timestamp = millis();
-  event->relative_humidity = _parent->_dht.readHumidity();
+std::optional<sensors_event_t> DHT_Unified::Humidity::getEvent() {
+  const auto humidity = _parent->_dht.readHumidity();
+  if (!humidity)
+    return std::nullopt;
 
-  return true;
+  sensors_event_t event;
+  // Populate sensor reading values.
+  event.version = sizeof(sensors_event_t);
+  event.sensor_id = _id;
+  event.type = SENSOR_TYPE_RELATIVE_HUMIDITY;
+  event.timestamp = espchrono::millis_clock::now();
+  event.relative_humidity = *humidity;
+
+  return event;
 }
 
 /*!
  *  @brief  Provides the sensor_t data for this sensor
  *  @param  sensor
  */
-void DHT_Unified::Humidity::getSensor(sensor_t *sensor) {
-  // Clear sensor definition.
-  memset(sensor, 0, sizeof(sensor_t));
+sensor_t DHT_Unified::Humidity::getSensor() {
+  sensor_t sensor;
   // Set sensor name.
-  _parent->setName(sensor);
+  _parent->setName(&sensor);
   // Set version and ID
-  sensor->version = DHT_SENSOR_VERSION;
-  sensor->sensor_id = _id;
+  sensor.version = DHT_SENSOR_VERSION;
+  sensor.sensor_id = _id;
   // Set type and characteristics.
-  sensor->type = SENSOR_TYPE_RELATIVE_HUMIDITY;
-  _parent->setMinDelay(sensor);
+  sensor.type = SENSOR_TYPE_RELATIVE_HUMIDITY;
+  _parent->setMinDelay(&sensor);
   switch (_parent->_type) {
   case DHT11:
-    sensor->max_value = 80.0F;
-    sensor->min_value = 20.0F;
-    sensor->resolution = 5.0F;
+    sensor.max_value = 80.0F;
+    sensor.min_value = 20.0F;
+    sensor.resolution = 5.0F;
     break;
   case DHT12:
-    sensor->max_value = 95.0F;
-    sensor->min_value = 20.0F;
-    sensor->resolution = 5.0F;
+    sensor.max_value = 95.0F;
+    sensor.min_value = 20.0F;
+    sensor.resolution = 5.0F;
     break;
   case DHT21:
-    sensor->max_value = 100.0F;
-    sensor->min_value = 0.0F;
-    sensor->resolution = 0.1F;
+    sensor.max_value = 100.0F;
+    sensor.min_value = 0.0F;
+    sensor.resolution = 0.1F;
     break;
   case DHT22:
-    sensor->max_value = 100.0F;
-    sensor->min_value = 0.0F;
-    sensor->resolution = 0.1F;
+    sensor.max_value = 100.0F;
+    sensor.min_value = 0.0F;
+    sensor.resolution = 0.1F;
     break;
   default:
     // Unknown type, default to 0.
-    sensor->max_value = 0.0F;
-    sensor->min_value = 0.0F;
-    sensor->resolution = 0.0F;
+    sensor.max_value = 0.0F;
+    sensor.min_value = 0.0F;
+    sensor.resolution = 0.0F;
     break;
   }
+  return sensor;
 }
