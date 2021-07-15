@@ -43,7 +43,7 @@ constexpr const auto MIN_INTERVAL = 2s; /**< min interval value */
  *  @param  count
  *          number of sensors
  */
-DHT::DHT(uint8_t pin, uint8_t type, uint8_t count) :
+DHT::DHT(gpio_num_t pin, uint8_t type, uint8_t count) :
   _pin{pin},
   _type{type},
 #ifdef __AVR

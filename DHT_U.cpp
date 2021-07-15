@@ -29,7 +29,7 @@
  *  @param  humiditySensorId
  *          humidity sensor id
  */
-DHT_Unified::DHT_Unified(uint8_t pin, uint8_t type, uint8_t count,
+DHT_Unified::DHT_Unified(gpio_num_t pin, uint8_t type, uint8_t count,
                          int32_t tempSensorId, int32_t humiditySensorId)
     : _dht(pin, type, count), _type(type), _temp(this, tempSensorId),
       _humidity(this, humiditySensorId) {}

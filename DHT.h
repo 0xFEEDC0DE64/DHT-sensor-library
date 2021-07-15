@@ -25,6 +25,8 @@
 
 #include <espchrono.h>
 
+#include <hal/gpio_types.h>
+
 /* Uncomment to enable printing out nice debug messages. */
 //#define DHT_DEBUG
 
@@ -46,11 +48,11 @@
 #endif
 
 /* Define types of sensors. */
-#define DHT11 11  /**< DHT TYPE 11 */
-#define DHT12 12  /**< DHY TYPE 12 */
-#define DHT22 22  /**< DHT TYPE 22 */
-#define DHT21 21  /**< DHT TYPE 21 */
-#define AM2301 21 /**< AM2301 */
+constexpr const uint8_t DHT11 = 11;  /**< DHT TYPE 11 */
+constexpr const uint8_t DHT12 = 12;  /**< DHY TYPE 12 */
+constexpr const uint8_t DHT22 = 22;  /**< DHT TYPE 22 */
+constexpr const uint8_t DHT21 = 21;  /**< DHT TYPE 21 */
+constexpr const uint8_t AM2301 = 21; /**< AM2301 */
 
 #if defined(TARGET_NAME) && (TARGET_NAME == ARDUINO_NANO33BLE)
 #ifndef microsecondsToClockCycles
@@ -67,7 +69,7 @@
  */
 class DHT {
 public:
-  DHT(uint8_t pin, uint8_t type, uint8_t count = 6);
+  DHT(gpio_num_t pin, uint8_t type, uint8_t count = 6);
 
   bool begin(uint8_t usec = 55);
 
@@ -87,7 +89,7 @@ public:
   const std::optional<std::array<uint8_t, 5>> &read(bool force = false);
 
 private:
-  const uint8_t _pin;
+  const gpio_num_t _pin;
   const uint8_t _type;
 #ifdef __AVR
   // Use direct GPIO access on an 8-bit AVR so keep track of the port and
