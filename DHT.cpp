@@ -26,6 +26,7 @@
 #include "DHT.h"
 
 #include <chrono>
+#include <tickchrono.h>
 
 using namespace std::chrono_literals;
 
@@ -261,7 +262,7 @@ const std::optional<std::array<uint8_t, 5>> &DHT::read(bool force) {
   // Go into high impedence state to let pull-up raise data line level and
   // start the reading process.
   pinMode(_pin, INPUT_PULLUP);
-  delay(1);
+  espcpputils::delay(1ms);
 
   // First set data line low for a period according to sensor type
   pinMode(_pin, OUTPUT);
@@ -273,7 +274,7 @@ const std::optional<std::array<uint8_t, 5>> &DHT::read(bool force) {
     break;
   case DHT11:
   default:
-    delay(20); // data sheet says at least 18ms, 20ms just to be safe
+    espcpputils::delay(20ms); // data sheet says at least 18ms, 20ms just to be safe
     break;
   }
 
